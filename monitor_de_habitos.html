@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Monitor de Hábitos — Vida pessoal</title>
+<style>
+:root{--bg:#101010;--panel:#191919;--line:#333;--red:#ef4444;--text:#f5f5f5;--muted:#aaa}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:1050px;margin:auto;padding:28px 16px 48px}.hero{border:1px solid #3a2525;background:linear-gradient(135deg,#211616,#171717);border-radius:18px;padding:24px;margin-bottom:18px}
+.kicker{color:#ff7777;font-size:.78rem;font-weight:800;letter-spacing:.14em}.dot{color:var(--red)}h1{font-size:clamp(1.8rem,5vw,2.6rem);line-height:1.1;margin:.4rem 0 1rem}.muted{color:var(--muted)}.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin:16px 0}
+.toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.weeknav{display:flex;gap:8px;align-items:center}button,input{font:inherit}button{background:#292929;color:var(--text);border:1px solid #444;border-radius:10px;padding:9px 13px;cursor:pointer}button:hover{border-color:var(--red)}button.primary{background:var(--red);border-color:var(--red);color:#fff;font-weight:700}
+.progressrow{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:18px 0 8px}.bar{height:9px;background:#333;border-radius:99px;overflow:hidden}.bar span{display:block;height:100%;width:0;background:var(--red);transition:width .2s}
+.tablewrap{overflow-x:auto}.tracker{width:100%;border-collapse:collapse;min-width:650px}.tracker th,.tracker td{padding:12px 8px;border-bottom:1px solid #303030;text-align:center}.tracker th{color:var(--muted);font-size:.82rem}.tracker th:first-child,.tracker td:first-child{text-align:left;min-width:210px}.habitname{width:100%;min-width:170px;background:transparent;color:var(--text);border:1px solid transparent;border-radius:7px;padding:7px}.habitname:focus{outline:1px solid var(--red);border-color:var(--red)}.check{appearance:none;width:23px;height:23px;border:1px solid #666;border-radius:7px;cursor:pointer;display:inline-grid;place-items:center;vertical-align:middle}.check:checked{background:var(--red);border-color:var(--red)}.check:checked:after{content:"✓";font-weight:900;color:white}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.small{font-size:.88rem}.notice{border-left:3px solid var(--red);padding:10px 13px;background:#211919;border-radius:0 8px 8px 0}.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}.stat{background:#202020;border-radius:12px;padding:14px}.stat strong{font-size:1.5rem;display:block}.stat span{color:var(--muted);font-size:.85rem}
+@media(max-width:560px){main{padding:14px 10px 32px}.hero{padding:18px}.panel{padding:13px}}
+</style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <div class="kicker"><span class="dot">●</span> SEU ESPAÇO · SEU RITMO</div>
+    <h1>Monitor de Hábitos</h1>
+    <p class="muted">Marque os hábitos realizados, personalize os nomes e navegue entre as semanas. Acompanhe seu progresso sem transformar consistência em cobrança.</p>
+  </section>
+  <section class="panel">
+    <div class="toolbar">
+      <div><strong id="weekLabel">Semana</strong><div class="muted small" id="dateRange"></div></div>
+      <div class="weeknav"><button id="prev" aria-label="Semana anterior">←</button><button id="today">Esta semana</button><button id="next" aria-label="Próxima semana">→</button></div>
+    </div>
+    <div class="progressrow"><strong>Progresso semanal</strong><strong id="percent">0%</strong></div>
+    <div class="bar"><span id="bar"></span></div>
+    <div class="stats" style="margin-top:16px">
+      <div class="stat"><strong id="doneCount">0</strong><span>marcações feitas</span></div>
+      <div class="stat"><strong id="totalCount">0</strong><span>oportunidades na semana</span></div>
+      <div class="stat"><strong id="bestDay">—</strong><span>melhor dia</span></div>
+    </div>
+  </section>
+  <section class="panel">
+    <div class="toolbar"><div><h2 style="margin:0">Seus hábitos</h2><div class="muted small">Edite os nomes diretamente na tabela.</div></div><button class="primary" id="add">+ Adicionar hábito</button></div>
+    <div class="tablewrap" style="margin-top:12px">
+      <table class="tracker" id="tracker"><thead><tr><th>Hábito</th><th>Seg</th><th>Ter</th><th>Qua</th><th>Qui</th><th>Sex</th><th>Sáb</th><th>Dom</th><th></th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="actions"><button id="clearWeek">Limpar esta semana</button><button id="export">Exportar dados (.json)</button></div>
+  </section>
+  <section class="panel">
+    <h3 style="margin-top:0">Sobre os registros</h3>
+    <p class="notice small">As marcações ficam salvas neste navegador e neste dispositivo. Elas não sincronizam automaticamente com o Notion nem entre dispositivos. Faça uma exportação de vez em quando para guardar uma cópia.</p>
+    <p class="muted small">Dica: os hábitos iniciais são exemplos — personalize-os para combinar com sua rotina.</p>
+  </section>
+</main>
+<script>
+const DAYS=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+const KEY='monitorHabitosVidaPessoal_v1';
+let data={habits:['Beber água','Estudar','Treinar','Ler'],weeks:{}};
+let weekOffset=0;
+try{const saved=JSON.parse(localStorage.getItem(KEY));if(saved&&Array.isArray(saved.habits)&&saved.weeks)data=saved;}catch(e){}
+function save(){localStorage.setItem(KEY,JSON.stringify(data));}
+function mondayOf(date){const d=new Date(date);d.setHours(0,0,0,0);const day=(d.getDay()+6)%7;d.setDate(d.getDate()-day);return d;}
+function currentMonday(){const d=mondayOf(new Date());d.setDate(d.getDate()+weekOffset*7);return d;}
+function keyForWeek(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function weekData(){const k=keyForWeek(currentMonday());if(!data.weeks[k])data.weeks[k]={};return data.weeks[k];}
+function fmt(d){return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});}
+function render(){
+ const monday=currentMonday(), sunday=new Date(monday);sunday.setDate(monday.getDate()+6);
+ document.getElementById('weekLabel').textContent='Semana de '+fmt(monday);
+ document.getElementById('dateRange').textContent=fmt(monday)+' – '+fmt(sunday);
+ const wd=weekData(), tbody=document.querySelector('#tracker tbody');tbody.innerHTML='';
+ let done=0,total=data.habits.length*7,dayCounts=Array(7).fill(0);
+ data.habits.forEach((habit,i)=>{
+  const tr=document.createElement('tr'), nameTd=document.createElement('td'), input=document.createElement('input');
+  input.className='habitname';input.value=habit;input.setAttribute('aria-label','Nome do hábito');
+  input.addEventListener('change',()=>{data.habits[i]=input.value.trim()||'Novo hábito';save();render();});nameTd.appendChild(input);tr.appendChild(nameTd);
+  for(let d=0;d<7;d++){const td=document.createElement('td'), cb=document.createElement('input');cb.type='checkbox';cb.className='check';cb.checked=!!(wd[i]&&wd[i][d]);cb.setAttribute('aria-label',`${habit}, ${DAYS[d]}`);
+   if(cb.checked){done++;dayCounts[d]++;}
+   cb.addEventListener('change',()=>{if(!wd[i])wd[i]={};wd[i][d]=cb.checked;save();render();});td.appendChild(cb);tr.appendChild(td);}
+  const delTd=document.createElement('td'), del=document.createElement('button');del.textContent='×';del.title='Excluir hábito';del.setAttribute('aria-label','Excluir hábito');del.style.padding='4px 9px';
+  del.addEventListener('click',()=>{if(confirm('Excluir este hábito e suas marcações?')){data.habits.splice(i,1);const all=Object.values(data.weeks);all.forEach(w=>{delete w[i];const reindexed={};Object.keys(w).forEach(k=>{const n=Number(k);reindexed[n>i?n-1:n]=w[k];});Object.keys(w).forEach(k=>delete w[k]);Object.assign(w,reindexed);});save();render();}});delTd.appendChild(del);tr.appendChild(delTd);tbody.appendChild(tr);
+ });
+ const pct=total?Math.round(done/total*100):0;document.getElementById('percent').textContent=pct+'%';document.getElementById('bar').style.width=pct+'%';document.getElementById('doneCount').textContent=done;document.getElementById('totalCount').textContent=total;
+ const max=Math.max(0,...dayCounts), idx=dayCounts.indexOf(max);document.getElementById('bestDay').textContent=done?DAYS[idx]:'—';
+}
+document.getElementById('prev').onclick=()=>{weekOffset--;render();};
+document.getElementById('next').onclick=()=>{weekOffset++;render();};
+document.getElementById('today').onclick=()=>{weekOffset=0;render();};
+document.getElementById('add').onclick=()=>{data.habits.push('Novo hábito');save();render();const inputs=document.querySelectorAll('.habitname');inputs[inputs.length-1].focus();};
+document.getElementById('clearWeek').onclick=()=>{if(confirm('Limpar todas as marcações desta semana?')){data.weeks[keyForWeek(currentMonday())]={};save();render();}};
+document.getElementById('export').onclick=()=>{const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='monitor-de-habitos-dados.json';a.click();URL.revokeObjectURL(url);};
+render();
+</script>
+</body>
+</html>
